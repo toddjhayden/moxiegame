@@ -16,6 +16,9 @@ A fun game where you play as a bird catching bugs!
 | 🦋 Butterfly | 10 |
 | 🐛 Caterpillar | 15 |
 | 🐞 Ladybug | 20 |
+| 🦗 Leaf Cricket | 25 |
+| 🐝 Red Wasp (Texas!) | 30 |
+| 🐛 Giant Centipede (Texas!) | 40 |
 | ✨ Golden Bug | 50 |
 
 ## Features

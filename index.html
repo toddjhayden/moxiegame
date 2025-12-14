@@ -124,7 +124,8 @@
         <p>You are a hungry bird!</p>
         <p>Catch the bugs to score points:</p>
         <div class="bug-preview">
-            🦋 = 10 pts &nbsp; 🐛 = 15 pts &nbsp; 🐞 = 20 pts &nbsp; ✨ = 50 pts
+            🦋 = 10 &nbsp; 🐛 = 15 &nbsp; 🐞 = 20 &nbsp; 🦗 = 25<br>
+            🐝 Red Wasp = 30 &nbsp; 🐛 Centipede = 40 &nbsp; ✨ = 50
         </div>
         <p>Move your mouse to fly around!</p>
         <button onclick="startGame()">Let's Play! 🎮</button>
@@ -164,11 +165,14 @@
             beakColor: '#FF6B6B'
         };
 
-        // Bug types
+        // Bug types - including Texas natives!
         const bugTypes = [
             { emoji: '🦋', points: 10, speed: 2, size: 30, name: 'butterfly' },
             { emoji: '🐛', points: 15, speed: 1.5, size: 25, name: 'caterpillar' },
             { emoji: '🐞', points: 20, speed: 2.5, size: 25, name: 'ladybug' },
+            { emoji: '🦗', points: 25, speed: 3, size: 28, name: 'leafcricket' },
+            { emoji: 'wasp', points: 30, speed: 3.5, size: 30, name: 'redwasp', custom: true },
+            { emoji: 'centipede', points: 40, speed: 1.2, size: 45, name: 'centipede', custom: true },
             { emoji: '✨', points: 50, speed: 4, size: 20, name: 'golden', rare: true }
         ];
 
@@ -191,7 +195,25 @@
 
         // Create a new bug
         function spawnBug() {
-            const type = Math.random() < 0.1 ? bugTypes[3] : bugTypes[Math.floor(Math.random() * 3)];
+            // Pick a bug type with weighted randomness
+            const rand = Math.random();
+            let type;
+            if (rand < 0.05) {
+                type = bugTypes[6]; // Golden (5% - rare!)
+            } else if (rand < 0.12) {
+                type = bugTypes[5]; // Giant centipede (7%)
+            } else if (rand < 0.22) {
+                type = bugTypes[4]; // Red wasp (10%)
+            } else if (rand < 0.35) {
+                type = bugTypes[3]; // Leaf cricket (13%)
+            } else if (rand < 0.55) {
+                type = bugTypes[2]; // Ladybug (20%)
+            } else if (rand < 0.75) {
+                type = bugTypes[1]; // Caterpillar (20%)
+            } else {
+                type = bugTypes[0]; // Butterfly (25%)
+            }
+
             const side = Math.floor(Math.random() * 4);
             let x, y;
 
@@ -210,6 +232,171 @@
                 wobble: Math.random() * Math.PI * 2,
                 speedMult: 0.8 + Math.random() * 0.4
             });
+        }
+
+        // Draw a red wasp (Texas paper wasp)
+        function drawRedWasp(x, y, size, wobble) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(Math.sin(wobble) * 0.2);
+
+            // Wings
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.ellipse(-size * 0.1, -size * 0.25, size * 0.35, size * 0.15, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(size * 0.1, -size * 0.25, size * 0.35, size * 0.15, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body (abdomen) - red/orange
+            ctx.fillStyle = '#CC3300';
+            ctx.beginPath();
+            ctx.ellipse(size * 0.2, 0, size * 0.3, size * 0.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stripes on abdomen
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(size * 0.05, -size * 0.08, size * 0.06, size * 0.16);
+            ctx.fillRect(size * 0.2, -size * 0.1, size * 0.06, size * 0.2);
+            ctx.fillRect(size * 0.35, -size * 0.06, size * 0.05, size * 0.12);
+
+            // Thorax
+            ctx.fillStyle = '#8B0000';
+            ctx.beginPath();
+            ctx.ellipse(-size * 0.1, 0, size * 0.18, size * 0.14, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#CC3300';
+            ctx.beginPath();
+            ctx.arc(-size * 0.3, 0, size * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-size * 0.33, -size * 0.04, size * 0.04, 0, Math.PI * 2);
+            ctx.arc(-size * 0.33, size * 0.04, size * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stinger
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.5, 0);
+            ctx.lineTo(size * 0.6, 0);
+            ctx.lineTo(size * 0.5, size * 0.02);
+            ctx.closePath();
+            ctx.fill();
+
+            // Antennae
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.38, -size * 0.05);
+            ctx.quadraticCurveTo(-size * 0.5, -size * 0.15, -size * 0.45, -size * 0.25);
+            ctx.moveTo(-size * 0.38, size * 0.05);
+            ctx.quadraticCurveTo(-size * 0.5, size * 0.15, -size * 0.45, size * 0.25);
+            ctx.stroke();
+
+            // Legs
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                const legX = -size * 0.15 + i * size * 0.12;
+                ctx.beginPath();
+                ctx.moveTo(legX, size * 0.1);
+                ctx.lineTo(legX - size * 0.05, size * 0.25 + Math.sin(wobble + i) * 0.05);
+                ctx.moveTo(legX, -size * 0.1);
+                ctx.lineTo(legX - size * 0.05, -size * 0.25 + Math.sin(wobble + i) * 0.05);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Draw a giant Texas centipede
+        function drawCentipede(x, y, size, wobble) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const segments = 8;
+            const segmentWidth = size / segments;
+
+            for (let i = 0; i < segments; i++) {
+                const segX = -size / 2 + i * segmentWidth + segmentWidth / 2;
+                const segY = Math.sin(wobble * 2 + i * 0.5) * 3;
+
+                // Segment body
+                ctx.fillStyle = i % 2 === 0 ? '#8B4513' : '#A0522D';
+                ctx.beginPath();
+                ctx.ellipse(segX, segY, segmentWidth * 0.6, size * 0.12, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Segment shine
+                ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(segX, segY - size * 0.04, segmentWidth * 0.4, size * 0.04, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Legs (lots of them!)
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 1.5;
+                const legWave = Math.sin(wobble * 3 + i * 0.8) * 3;
+                // Top legs
+                ctx.beginPath();
+                ctx.moveTo(segX, segY - size * 0.08);
+                ctx.lineTo(segX - 3, segY - size * 0.22 + legWave);
+                ctx.moveTo(segX, segY - size * 0.08);
+                ctx.lineTo(segX + 3, segY - size * 0.22 - legWave);
+                ctx.stroke();
+                // Bottom legs
+                ctx.beginPath();
+                ctx.moveTo(segX, segY + size * 0.08);
+                ctx.lineTo(segX - 3, segY + size * 0.22 - legWave);
+                ctx.moveTo(segX, segY + size * 0.08);
+                ctx.lineTo(segX + 3, segY + size * 0.22 + legWave);
+                ctx.stroke();
+            }
+
+            // Head
+            ctx.fillStyle = '#8B0000';
+            ctx.beginPath();
+            ctx.ellipse(-size / 2 - segmentWidth * 0.3, Math.sin(wobble * 2) * 3, segmentWidth * 0.5, size * 0.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Antennae
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            const headY = Math.sin(wobble * 2) * 3;
+            ctx.beginPath();
+            ctx.moveTo(-size / 2 - segmentWidth * 0.5, headY - 3);
+            ctx.quadraticCurveTo(-size / 2 - segmentWidth, headY - 10, -size / 2 - segmentWidth * 0.8, headY - 15);
+            ctx.moveTo(-size / 2 - segmentWidth * 0.5, headY + 3);
+            ctx.quadraticCurveTo(-size / 2 - segmentWidth, headY + 10, -size / 2 - segmentWidth * 0.8, headY + 15);
+            ctx.stroke();
+
+            // Pincers (centipedes have venomous pincers!)
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-size / 2 - segmentWidth * 0.6, headY - 2);
+            ctx.lineTo(-size / 2 - segmentWidth * 0.9, headY - 6);
+            ctx.moveTo(-size / 2 - segmentWidth * 0.6, headY + 2);
+            ctx.lineTo(-size / 2 - segmentWidth * 0.9, headY + 6);
+            ctx.stroke();
+
+            // Tail
+            ctx.fillStyle = '#A0522D';
+            const tailY = Math.sin(wobble * 2 + segments * 0.5) * 3;
+            ctx.beginPath();
+            ctx.moveTo(size / 2, tailY);
+            ctx.lineTo(size / 2 + 8, tailY - 5);
+            ctx.lineTo(size / 2 + 8, tailY + 5);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
         }
 
         // Create particles when catching a bug
@@ -474,18 +661,28 @@
 
             // Draw bugs
             bugs.forEach(bug => {
-                ctx.font = `${bug.type.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                // Custom drawn bugs (Texas natives!)
+                if (bug.type.custom) {
+                    if (bug.type.name === 'redwasp') {
+                        drawRedWasp(bug.x, bug.y, bug.type.size, bug.wobble);
+                    } else if (bug.type.name === 'centipede') {
+                        drawCentipede(bug.x, bug.y, bug.type.size, bug.wobble);
+                    }
+                } else {
+                    // Emoji bugs
+                    ctx.font = `${bug.type.size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
 
-                // Add shadow for golden bugs
-                if (bug.type.rare) {
-                    ctx.shadowColor = '#FFD700';
-                    ctx.shadowBlur = 20;
+                    // Add shadow for golden bugs
+                    if (bug.type.rare) {
+                        ctx.shadowColor = '#FFD700';
+                        ctx.shadowBlur = 20;
+                    }
+
+                    ctx.fillText(bug.type.emoji, bug.x, bug.y);
+                    ctx.shadowBlur = 0;
                 }
-
-                ctx.fillText(bug.type.emoji, bug.x, bug.y);
-                ctx.shadowBlur = 0;
             });
 
             // Draw particles
