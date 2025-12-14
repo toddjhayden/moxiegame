@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moxie's Bug Catcher - A Bird Adventure!</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Comic Sans MS', 'Chalkboard', cursive;
+            overflow: hidden;
+        }
+
+        .game-container {
+            text-align: center;
+        }
+
+        h1 {
+            color: #fff;
+            text-shadow: 3px 3px 0px #ff6b6b, 6px 6px 0px rgba(0,0,0,0.2);
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            animation: bounce 1s ease infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        #score-display {
+            color: #ffd93d;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+        }
+
+        canvas {
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            cursor: none;
+        }
+
+        .instructions {
+            color: #fff;
+            margin-top: 15px;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        #start-screen h2, #game-over-screen h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        #start-screen p, #game-over-screen p {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .bug-preview {
+            font-size: 2em;
+            margin: 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🐦 Moxie's Bug Catcher! 🐦</h1>
+        <div id="score-display">Score: 0 ⭐</div>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <p class="instructions">🎮 Move your mouse to fly! Catch all the bugs! 🐛</p>
+    </div>
+
+    <div id="start-screen">
+        <h2>🐦 Welcome to Bug Catcher! 🐦</h2>
+        <p>You are a hungry bird!</p>
+        <p>Catch the bugs to score points:</p>
+        <div class="bug-preview">
+            🦋 = 10 &nbsp; 🐛 = 15 &nbsp; 🐞 = 20 &nbsp; 🦗 = 25<br>
+            🐝 Red Wasp = 30 &nbsp; 🐛 Centipede = 40 &nbsp; ✨ = 50
+        </div>
+        <p>Move your mouse to fly around!</p>
+        <button onclick="startGame()">Let's Play! 🎮</button>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h2>🎉 Amazing Job! 🎉</h2>
+        <p id="final-score">You caught so many bugs!</p>
+        <p id="bugs-caught">Bugs caught: 0</p>
+        <button onclick="startGame()">Play Again! 🔄</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        // Game state
+        let score = 0;
+        let bugsCaught = 0;
+        let gameRunning = false;
+        let gameTime = 60; // 60 seconds per game
+        let timeLeft = gameTime;
+        let lastTime = 0;
+
+        // Bird properties
+        const bird = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            targetX: canvas.width / 2,
+            targetY: canvas.height / 2,
+            size: 40,
+            wingAngle: 0,
+            color: '#FFD93D',
+            beakColor: '#FF6B6B'
+        };
+
+        // Bug types - including Texas natives!
+        const bugTypes = [
+            { emoji: '🦋', points: 10, speed: 2, size: 30, name: 'butterfly' },
+            { emoji: '🐛', points: 15, speed: 1.5, size: 25, name: 'caterpillar' },
+            { emoji: '🐞', points: 20, speed: 2.5, size: 25, name: 'ladybug' },
+            { emoji: '🦗', points: 25, speed: 3, size: 28, name: 'leafcricket' },
+            { emoji: 'wasp', points: 30, speed: 3.5, size: 30, name: 'redwasp', custom: true },
+            { emoji: 'centipede', points: 40, speed: 1.2, size: 45, name: 'centipede', custom: true },
+            { emoji: '✨', points: 50, speed: 4, size: 20, name: 'golden', rare: true }
+        ];
+
+        let bugs = [];
+        let particles = [];
+        let clouds = [];
+
+        // Initialize clouds
+        function initClouds() {
+            clouds = [];
+            for (let i = 0; i < 5; i++) {
+                clouds.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * (canvas.height / 3),
+                    size: 30 + Math.random() * 40,
+                    speed: 0.2 + Math.random() * 0.3
+                });
+            }
+        }
+
+        // Create a new bug
+        function spawnBug() {
+            // Pick a bug type with weighted randomness
+            const rand = Math.random();
+            let type;
+            if (rand < 0.05) {
+                type = bugTypes[6]; // Golden (5% - rare!)
+            } else if (rand < 0.12) {
+                type = bugTypes[5]; // Giant centipede (7%)
+            } else if (rand < 0.22) {
+                type = bugTypes[4]; // Red wasp (10%)
+            } else if (rand < 0.35) {
+                type = bugTypes[3]; // Leaf cricket (13%)
+            } else if (rand < 0.55) {
+                type = bugTypes[2]; // Ladybug (20%)
+            } else if (rand < 0.75) {
+                type = bugTypes[1]; // Caterpillar (20%)
+            } else {
+                type = bugTypes[0]; // Butterfly (25%)
+            }
+
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+
+            switch(side) {
+                case 0: x = -30; y = Math.random() * canvas.height; break;
+                case 1: x = canvas.width + 30; y = Math.random() * canvas.height; break;
+                case 2: x = Math.random() * canvas.width; y = -30; break;
+                case 3: x = Math.random() * canvas.width; y = canvas.height + 30; break;
+            }
+
+            bugs.push({
+                x: x,
+                y: y,
+                type: type,
+                angle: Math.random() * Math.PI * 2,
+                wobble: Math.random() * Math.PI * 2,
+                speedMult: 0.8 + Math.random() * 0.4
+            });
+        }
+
+        // Draw a red wasp (Texas paper wasp)
+        function drawRedWasp(x, y, size, wobble) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(Math.sin(wobble) * 0.2);
+
+            // Wings
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.ellipse(-size * 0.1, -size * 0.25, size * 0.35, size * 0.15, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(size * 0.1, -size * 0.25, size * 0.35, size * 0.15, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body (abdomen) - red/orange
+            ctx.fillStyle = '#CC3300';
+            ctx.beginPath();
+            ctx.ellipse(size * 0.2, 0, size * 0.3, size * 0.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stripes on abdomen
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(size * 0.05, -size * 0.08, size * 0.06, size * 0.16);
+            ctx.fillRect(size * 0.2, -size * 0.1, size * 0.06, size * 0.2);
+            ctx.fillRect(size * 0.35, -size * 0.06, size * 0.05, size * 0.12);
+
+            // Thorax
+            ctx.fillStyle = '#8B0000';
+            ctx.beginPath();
+            ctx.ellipse(-size * 0.1, 0, size * 0.18, size * 0.14, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#CC3300';
+            ctx.beginPath();
+            ctx.arc(-size * 0.3, 0, size * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-size * 0.33, -size * 0.04, size * 0.04, 0, Math.PI * 2);
+            ctx.arc(-size * 0.33, size * 0.04, size * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stinger
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.5, 0);
+            ctx.lineTo(size * 0.6, 0);
+            ctx.lineTo(size * 0.5, size * 0.02);
+            ctx.closePath();
+            ctx.fill();
+
+            // Antennae
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.38, -size * 0.05);
+            ctx.quadraticCurveTo(-size * 0.5, -size * 0.15, -size * 0.45, -size * 0.25);
+            ctx.moveTo(-size * 0.38, size * 0.05);
+            ctx.quadraticCurveTo(-size * 0.5, size * 0.15, -size * 0.45, size * 0.25);
+            ctx.stroke();
+
+            // Legs
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                const legX = -size * 0.15 + i * size * 0.12;
+                ctx.beginPath();
+                ctx.moveTo(legX, size * 0.1);
+                ctx.lineTo(legX - size * 0.05, size * 0.25 + Math.sin(wobble + i) * 0.05);
+                ctx.moveTo(legX, -size * 0.1);
+                ctx.lineTo(legX - size * 0.05, -size * 0.25 + Math.sin(wobble + i) * 0.05);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Draw a giant Texas centipede
+        function drawCentipede(x, y, size, wobble) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const segments = 8;
+            const segmentWidth = size / segments;
+
+            for (let i = 0; i < segments; i++) {
+                const segX = -size / 2 + i * segmentWidth + segmentWidth / 2;
+                const segY = Math.sin(wobble * 2 + i * 0.5) * 3;
+
+                // Segment body
+                ctx.fillStyle = i % 2 === 0 ? '#8B4513' : '#A0522D';
+                ctx.beginPath();
+                ctx.ellipse(segX, segY, segmentWidth * 0.6, size * 0.12, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Segment shine
+                ctx.fillStyle = 'rgba(255, 200, 100, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(segX, segY - size * 0.04, segmentWidth * 0.4, size * 0.04, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Legs (lots of them!)
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 1.5;
+                const legWave = Math.sin(wobble * 3 + i * 0.8) * 3;
+                // Top legs
+                ctx.beginPath();
+                ctx.moveTo(segX, segY - size * 0.08);
+                ctx.lineTo(segX - 3, segY - size * 0.22 + legWave);
+                ctx.moveTo(segX, segY - size * 0.08);
+                ctx.lineTo(segX + 3, segY - size * 0.22 - legWave);
+                ctx.stroke();
+                // Bottom legs
+                ctx.beginPath();
+                ctx.moveTo(segX, segY + size * 0.08);
+                ctx.lineTo(segX - 3, segY + size * 0.22 - legWave);
+                ctx.moveTo(segX, segY + size * 0.08);
+                ctx.lineTo(segX + 3, segY + size * 0.22 + legWave);
+                ctx.stroke();
+            }
+
+            // Head
+            ctx.fillStyle = '#8B0000';
+            ctx.beginPath();
+            ctx.ellipse(-size / 2 - segmentWidth * 0.3, Math.sin(wobble * 2) * 3, segmentWidth * 0.5, size * 0.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Antennae
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            const headY = Math.sin(wobble * 2) * 3;
+            ctx.beginPath();
+            ctx.moveTo(-size / 2 - segmentWidth * 0.5, headY - 3);
+            ctx.quadraticCurveTo(-size / 2 - segmentWidth, headY - 10, -size / 2 - segmentWidth * 0.8, headY - 15);
+            ctx.moveTo(-size / 2 - segmentWidth * 0.5, headY + 3);
+            ctx.quadraticCurveTo(-size / 2 - segmentWidth, headY + 10, -size / 2 - segmentWidth * 0.8, headY + 15);
+            ctx.stroke();
+
+            // Pincers (centipedes have venomous pincers!)
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-size / 2 - segmentWidth * 0.6, headY - 2);
+            ctx.lineTo(-size / 2 - segmentWidth * 0.9, headY - 6);
+            ctx.moveTo(-size / 2 - segmentWidth * 0.6, headY + 2);
+            ctx.lineTo(-size / 2 - segmentWidth * 0.9, headY + 6);
+            ctx.stroke();
+
+            // Tail
+            ctx.fillStyle = '#A0522D';
+            const tailY = Math.sin(wobble * 2 + segments * 0.5) * 3;
+            ctx.beginPath();
+            ctx.moveTo(size / 2, tailY);
+            ctx.lineTo(size / 2 + 8, tailY - 5);
+            ctx.lineTo(size / 2 + 8, tailY + 5);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Create particles when catching a bug
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1,
+                    color: color,
+                    size: 5 + Math.random() * 10
+                });
+            }
+        }
+
+        // Draw a cute bird
+        function drawBird() {
+            const { x, y, size, wingAngle } = bird;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Determine direction bird is facing
+            const facingRight = bird.targetX > bird.x;
+            if (!facingRight) ctx.scale(-1, 1);
+
+            // Body
+            ctx.fillStyle = bird.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, size * 0.6, size * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Wing
+            ctx.fillStyle = '#E8C43D';
+            ctx.save();
+            ctx.translate(-5, 0);
+            ctx.rotate(Math.sin(wingAngle) * 0.5);
+            ctx.beginPath();
+            ctx.ellipse(-10, 0, size * 0.4, size * 0.25, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Head
+            ctx.fillStyle = bird.color;
+            ctx.beginPath();
+            ctx.arc(size * 0.4, -size * 0.1, size * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eye
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(size * 0.5, -size * 0.15, size * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eye shine
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(size * 0.53, -size * 0.2, size * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Beak
+            ctx.fillStyle = bird.beakColor;
+            ctx.beginPath();
+            ctx.moveTo(size * 0.7, -size * 0.05);
+            ctx.lineTo(size * 0.95, 0);
+            ctx.lineTo(size * 0.7, size * 0.1);
+            ctx.closePath();
+            ctx.fill();
+
+            // Tail feathers
+            ctx.fillStyle = '#E8C43D';
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.5, 0);
+            ctx.lineTo(-size * 0.9, -size * 0.2);
+            ctx.lineTo(-size * 0.85, 0);
+            ctx.lineTo(-size * 0.9, size * 0.2);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw background
+        function drawBackground() {
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#98D8C8');
+            gradient.addColorStop(1, '#7CB342');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            clouds.forEach(cloud => {
+                drawCloud(cloud.x, cloud.y, cloud.size);
+            });
+
+            // Ground
+            ctx.fillStyle = '#7CB342';
+            ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+            // Grass details
+            ctx.fillStyle = '#8BC34A';
+            for (let i = 0; i < canvas.width; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 40);
+                ctx.lineTo(i + 10, canvas.height - 55);
+                ctx.lineTo(i + 20, canvas.height - 40);
+                ctx.fill();
+            }
+
+            // Flowers
+            const flowerColors = ['#FF6B6B', '#FFE66D', '#FF8E72', '#B388FF'];
+            for (let i = 30; i < canvas.width; i += 80) {
+                ctx.fillStyle = flowerColors[Math.floor(i / 80) % flowerColors.length];
+                ctx.beginPath();
+                ctx.arc(i, canvas.height - 25, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFD93D';
+                ctx.beginPath();
+                ctx.arc(i, canvas.height - 25, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawCloud(x, y, size) {
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.8, y - size * 0.2, size * 0.7, 0, Math.PI * 2);
+            ctx.arc(x + size * 1.4, y, size * 0.8, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.7, y + size * 0.3, size * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw timer
+        function drawTimer() {
+            const barWidth = 200;
+            const barHeight = 20;
+            const x = canvas.width - barWidth - 20;
+            const y = 15;
+
+            // Background
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.roundRect(x, y, barWidth, barHeight, 10);
+            ctx.fill();
+
+            // Timer bar
+            const progress = timeLeft / gameTime;
+            const hue = progress * 120; // Green to red
+            ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+            ctx.beginPath();
+            ctx.roundRect(x, y, barWidth * progress, barHeight, 10);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px Comic Sans MS';
+            ctx.textAlign = 'center';
+            ctx.fillText(`⏱️ ${Math.ceil(timeLeft)}s`, x + barWidth/2, y + 15);
+        }
+
+        // Update game state
+        function update(deltaTime) {
+            if (!gameRunning) return;
+
+            // Update timer
+            timeLeft -= deltaTime / 1000;
+            if (timeLeft <= 0) {
+                endGame();
+                return;
+            }
+
+            // Move bird smoothly toward target
+            bird.x += (bird.targetX - bird.x) * 0.1;
+            bird.y += (bird.targetY - bird.y) * 0.1;
+            bird.wingAngle += 0.3;
+
+            // Keep bird in bounds
+            bird.x = Math.max(bird.size, Math.min(canvas.width - bird.size, bird.x));
+            bird.y = Math.max(bird.size, Math.min(canvas.height - bird.size - 40, bird.y));
+
+            // Update clouds
+            clouds.forEach(cloud => {
+                cloud.x += cloud.speed;
+                if (cloud.x > canvas.width + cloud.size * 2) {
+                    cloud.x = -cloud.size * 2;
+                }
+            });
+
+            // Spawn bugs
+            if (Math.random() < 0.03 && bugs.length < 10) {
+                spawnBug();
+            }
+
+            // Update bugs
+            bugs.forEach(bug => {
+                bug.wobble += 0.1;
+
+                // Move toward center-ish with wobble
+                const targetX = canvas.width / 2 + Math.sin(bug.wobble * 0.5) * 200;
+                const targetY = canvas.height / 2 + Math.cos(bug.wobble * 0.3) * 150;
+
+                const dx = targetX - bug.x;
+                const dy = targetY - bug.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > 0) {
+                    bug.x += (dx / dist) * bug.type.speed * bug.speedMult;
+                    bug.y += (dy / dist) * bug.type.speed * bug.speedMult;
+                }
+
+                // Add wobble movement
+                bug.x += Math.sin(bug.wobble) * 2;
+                bug.y += Math.cos(bug.wobble * 1.3) * 1.5;
+            });
+
+            // Check collisions
+            bugs = bugs.filter(bug => {
+                const dx = bird.x - bug.x;
+                const dy = bird.y - bug.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < bird.size + bug.type.size / 2) {
+                    // Caught the bug!
+                    score += bug.type.points;
+                    bugsCaught++;
+                    scoreDisplay.textContent = `Score: ${score} ⭐`;
+
+                    // Create celebration particles
+                    const colors = ['#FFD93D', '#FF6B6B', '#4ECDC4', '#95E1D3', '#B388FF'];
+                    createParticles(bug.x, bug.y, colors[Math.floor(Math.random() * colors.length)], 15);
+
+                    return false; // Remove bug
+                }
+
+                // Remove bugs that went too far off screen
+                if (bug.x < -100 || bug.x > canvas.width + 100 ||
+                    bug.y < -100 || bug.y > canvas.height + 100) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            // Update particles
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3; // Gravity
+                p.life -= 0.02;
+                p.size *= 0.98;
+                return p.life > 0;
+            });
+        }
+
+        // Draw everything
+        function draw() {
+            drawBackground();
+
+            // Draw bugs
+            bugs.forEach(bug => {
+                // Custom drawn bugs (Texas natives!)
+                if (bug.type.custom) {
+                    if (bug.type.name === 'redwasp') {
+                        drawRedWasp(bug.x, bug.y, bug.type.size, bug.wobble);
+                    } else if (bug.type.name === 'centipede') {
+                        drawCentipede(bug.x, bug.y, bug.type.size, bug.wobble);
+                    }
+                } else {
+                    // Emoji bugs
+                    ctx.font = `${bug.type.size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Add shadow for golden bugs
+                    if (bug.type.rare) {
+                        ctx.shadowColor = '#FFD700';
+                        ctx.shadowBlur = 20;
+                    }
+
+                    ctx.fillText(bug.type.emoji, bug.x, bug.y);
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            // Draw particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw bird
+            drawBird();
+
+            // Draw timer
+            if (gameRunning) {
+                drawTimer();
+            }
+        }
+
+        // Game loop
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update(deltaTime);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Mouse movement
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            bird.targetX = e.clientX - rect.left;
+            bird.targetY = e.clientY - rect.top;
+        });
+
+        // Touch support for mobile
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            bird.targetX = touch.clientX - rect.left;
+            bird.targetY = touch.clientY - rect.top;
+        });
+
+        // Start game
+        function startGame() {
+            score = 0;
+            bugsCaught = 0;
+            timeLeft = gameTime;
+            bugs = [];
+            particles = [];
+            scoreDisplay.textContent = `Score: 0 ⭐`;
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            initClouds();
+            gameRunning = true;
+
+            // Spawn some initial bugs
+            for (let i = 0; i < 5; i++) {
+                spawnBug();
+            }
+        }
+
+        // End game
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('final-score').textContent = `Final Score: ${score} ⭐`;
+            document.getElementById('bugs-caught').textContent = `Bugs caught: ${bugsCaught} 🐛`;
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // Initialize
+        initClouds();
+        draw();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
